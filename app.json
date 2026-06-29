@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "拾句 LineKeep",
+    "slug": "bookquote",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.eliancreate.bookquote" },
+    "android": { "package": "com.eliancreate.bookquote" }
+  }
+}
