@@ -227,9 +227,10 @@ const ROW_GAP = 12;
 
 function Home({ items, reorderable, onReorder, onScroll, onEdit, onDelete }: { items: Excerpt[]; reorderable: boolean; onReorder: (next: Excerpt[]) => void; onScroll: (y: number) => void; onEdit: (x: Excerpt) => void; onDelete: (x: Excerpt) => void }) {
   const { styles: s, t } = useTheme();
+  const { bottom } = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
   const empty = <Empty icon="book-open-blank-variant-outline" title={t('沒有找到任何書摘')} subtitle={t('點擊右下角新增一筆吧')} />;
-  if (!reorderable) return <View style={s.flex}><FlatList data={items} keyExtractor={x => x.id} contentContainerStyle={[s.list, s.homeListTop]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={event => onScroll(event.nativeEvent.contentOffset.y)} onScrollBeginDrag={() => setOpenId(null)}
+  if (!reorderable) return <View style={s.flex}><FlatList data={items} keyExtractor={x => x.id} contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={event => onScroll(event.nativeEvent.contentOffset.y)} onScrollBeginDrag={() => setOpenId(null)}
       ListEmptyComponent={empty}
       renderItem={({ item }) => <QuoteCard item={item} fontSize={18} fontFamily={FAMILY} isOpen={openId === item.id} onOpen={open => setOpenId(open ? item.id : null)} onEdit={onEdit} onDelete={onDelete} />} />
   </View>;
@@ -239,6 +240,7 @@ function Home({ items, reorderable, onReorder, onScroll, onEdit, onDelete }: { i
 // ponytail: hand-rolled long-press drag reorder over a ScrollView — no reanimated/gesture-handler/draggable-flatlist deps. Rows shift by the dragged card's height (approximate when card heights differ); good enough for this list size.
 function DraggableList({ data, openId, setOpenId, onReorder, onScroll, onEdit, onDelete, empty }: { data: Excerpt[]; openId: string | null; setOpenId: (id: string | null) => void; onReorder: (next: Excerpt[]) => void; onScroll: (y: number) => void; onEdit: (x: Excerpt) => void; onDelete: (x: Excerpt) => void; empty: React.ReactNode }) {
   const { styles: s } = useTheme();
+  const { bottom } = useSafeAreaInsets();
   const [order, setOrder] = useState(data);
   useEffect(() => { setOrder(data); }, [data]);
   const heights = useRef<Record<string, number>>({});
@@ -270,8 +272,8 @@ function DraggableList({ data, openId, setOpenId, onReorder, onScroll, onEdit, o
     dragIdRef.current = null; setDragId(null); setScrollEnabled(true); setHoverIndex(null); dragY.setValue(0);
     if (from !== to) { const next = [...order]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); setOrder(next); onReorder(next); haptic.success(); }
   };
-  if (!order.length) return <ScrollView contentContainerStyle={[s.list, s.homeListTop]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={e => onScroll(e.nativeEvent.contentOffset.y)}>{empty}</ScrollView>;
-  return <ScrollView scrollEnabled={scrollEnabled} contentContainerStyle={[s.list, s.homeListTop]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={e => onScroll(e.nativeEvent.contentOffset.y)} onScrollBeginDrag={() => setOpenId(null)}>
+  if (!order.length) return <ScrollView contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={e => onScroll(e.nativeEvent.contentOffset.y)}>{empty}</ScrollView>;
+  return <ScrollView scrollEnabled={scrollEnabled} contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={e => onScroll(e.nativeEvent.contentOffset.y)} onScrollBeginDrag={() => setOpenId(null)}>
     {order.map((item, index) => <DragRow key={item.id} item={item} index={index} dragId={dragId} originIndex={originIndex.current} hoverIndex={hoverIndex} dragH={dragH.current} dragY={dragY} dragIdRef={dragIdRef} openId={openId} setOpenId={setOpenId} onStart={start} onMove={move} onEnd={end} onEdit={onEdit} onDelete={onDelete} onMeasure={h => { heights.current[item.id] = h; }} />)}
   </ScrollView>;
 }
