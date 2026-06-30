@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo, Alert, Animated, FlatList, KeyboardAvoidingView, Modal, NativeModules, PanResponder, Platform, Pressable,
-  Image, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View,
+  Image, ScrollView, Share, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,10 +18,8 @@ type Tab = 'home' | 'books' | 'dashboard' | 'settings';
 const NAV_TABS: Tab[] = ['home', 'books', 'dashboard'];
 type ThemeName = 'minimal' | 'garden' | 'midnight' | 'sunlight';
 type ThemeColors = { bg: string; panel: string; navOn: string; navOff: string; ink: string; muted: string; accent: string; danger: string; line: string };
-type ThemePalettes = Record<ThemeName, ThemeColors>;
 type GradientColors = [string, string, string];
 type ActionGradients = { fab: GradientColors; draw: GradientColors };
-type ThemeGradients = Record<ThemeName, ActionGradients>;
 
 // ponytail: tiny 24px PNG tiles, tiled via Image resizeMode="repeat" + tintColor — no svg/image deps
 const PATTERNS = {
@@ -29,11 +27,11 @@ const PATTERNS = {
   grid: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAJElEQVR42mP4T2PAACZoCUYtGLVg1IJRC0YtGLVg1IJRC6gCAJUbu0WcFZuQAAAAAElFTkSuQmCC',
   diag: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAALElEQVR42mP4DwQMeACl8gy0NByv/Kjho4YPEsNH88Go4aOGj+aDUcOHiuEAuAAe8LLsdKkAAAAASUVORK5CYII=',
 };
-const THEMES: Record<ThemeName, { label: string; colors: ThemeColors; swatches: string[]; texture?: keyof typeof PATTERNS }> = {
-  minimal: { label: '極簡色調', colors: { bg: '#F3F4F2', panel: '#FAFAF8', navOn: '#718E9E', navOff: '#767B78', ink: '#252725', muted: '#767B78', accent: '#718E9E', danger: '#C55252', line: '#DFE1DE' }, swatches: ['#F3F4F2', '#FAFAF8', '#718E9E', '#252725'] },
-  garden: { label: '花園藤椅', colors: { bg: '#F7F5F1', panel: '#E0DCD1', navOn: '#B4BD62', navOff: '#667264', ink: '#344945', muted: '#667264', accent: '#B4BD62', danger: '#A45244', line: '#C9C5B8' }, swatches: ['#F7F5F1', '#E0DCD1', '#8EBD9D', '#B4BD62'], texture: 'dots' },
-  midnight: { label: '午夜霓虹', colors: { bg: '#080D1C', panel: '#111A35', navOn: '#DDF57A', navOff: '#B7C3E7', ink: '#F7F5F1', muted: '#B7C3E7', accent: '#DDF57A', danger: '#F07AD9', line: '#24345F' }, swatches: ['#080D1C', '#111A35', '#B7C3E7', '#F07AD9', '#DDF57A'], texture: 'diag' },
-  sunlight: { label: '日光閃爍', colors: { bg: '#D5E3E8', panel: '#FFFDF5', navOn: '#FAD564', navOff: '#567482', ink: '#1B475D', muted: '#567482', accent: '#FAD564', danger: '#E86E49', line: '#95B1EE' }, swatches: ['#D5E3E8', '#95B1EE', '#FFFDF5', '#FAD564'], texture: 'grid' },
+const THEMES: Record<ThemeName, { label: string; colors: ThemeColors; texture?: keyof typeof PATTERNS }> = {
+  minimal: { label: '極簡色調', colors: { bg: '#F1F2F3', panel: '#FAFAF8', navOn: '#718E9E', navOff: '#767B78', ink: '#252725', muted: '#606061', accent: '#74D6FD', danger: '#C55252', line: '#DFE1DE' } },
+  garden: { label: '花園藤椅', colors: { bg: '#DDCEB3', panel: '#FFFFFF', navOn: '#8E954C', navOff: '#667264', ink: '#301F1F', muted: '#0D5437', accent: '#B3BD4F', danger: '#A45244', line: '#C9C5B8' }, texture: 'dots' },
+  midnight: { label: '午夜霓虹', colors: { bg: '#09090C', panel: '#1A2127', navOn: '#CEE218', navOff: '#1988A7', ink: '#CECDDC', muted: '#1992A7', accent: '#D30CB1', danger: '#D3310C', line: '#1F2126' }, texture: 'diag' },
+  sunlight: { label: '日光閃爍', colors: { bg: '#DDE5E6', panel: '#FDFDFC', navOn: '#EC930D', navOff: '#728CA4', ink: '#32779B', muted: '#EC930D', accent: '#DA8210', danger: '#E86E49', line: '#7BC7E0' }, texture: 'grid' },
 };
 type Lang = 'zh' | 'en';
 // ponytail: zh strings ARE the keys — only the EN map exists; t() returns the key verbatim for zh. Missing key falls back to the zh text.
@@ -43,7 +41,7 @@ const EN: Record<string, string> = {
   '關閉': 'Close', '收起卡片': 'Close card', '翻開卡片': 'Flip card', '輕觸揭曉': 'Tap to reveal', '分享': 'Share', '寫下心得': 'Write a note', '再玩一次': 'Draw again', '靜心，與一句話相遇': 'Be still, and meet a sentence',
   '編輯書摘': 'Edit excerpt', '刪除書摘': 'Delete excerpt', '書背展示': 'Spine view', '書封展示': 'Cover view',
   '書摘總數': 'Excerpts', '精選藏書': 'Books', '涉及作家': 'Authors', '心頭好書籍 · TOP 3': 'Favorite books · TOP 3', '條': 'entries', '尚無書籍分類': 'No books yet', '閱讀色彩美學偏好': 'Color palette preference', '最長摘錄金句': 'Longest excerpt', '字': 'chars',
-  '抽牌心得': 'Draw notes', '查看我的心得': 'View my notes', '顯示樣式': 'Display', '卡片邊線': 'Card border', '介面配色': 'Theme', '主要按鈕漸層': 'Button gradients', '＋ 新增書摘': '+ Add excerpt',
+  '抽牌心得': 'Draw notes', '查看我的心得': 'View my notes', '介面配色': 'Theme',
   '資料備份與匯入': 'Backup & import', '備份至剪貼簿': 'Copy backup to clipboard', '從備份匯入': 'Import from backup', '系統維護與重置': 'Maintenance & reset', '恢復預設經典書摘': 'Restore default excerpts', '清空所有書摘': 'Clear all excerpts',
   '收藏曾與你相遇的句子，讓值得重讀的片刻，再次回到日常。': 'Keep the sentences you have met, and let moments worth rereading return to daily life.', '語言': 'Language',
   '此刻的心得': 'Your thoughts', '這句話讓你想到什麼？': 'What does this sentence remind you of?', '儲存心得': 'Save note', '我的抽牌心得': 'My draw notes', '刪除心得': 'Delete note', '還沒有任何心得': 'No notes yet', '抽一張卡片，寫下你的感受': 'Draw a card and write how you feel',
@@ -66,19 +64,11 @@ const makeT = (lang: Lang) => (key: string) => lang === 'en' ? (EN[key] ?? key) 
 const ThemeContext = React.createContext<{ colors: ThemeColors; styles: ReturnType<typeof createStyles>; t: (key: string) => string; lang: Lang } | null>(null);
 const useTheme = () => { const value = React.useContext(ThemeContext); if (!value) throw Error('ThemeProvider missing'); return value; };
 const COLORS = ['#8DA6B5', '#252725', '#D9A05B', '#6D8E7D', '#A88174'];
-const DEFAULT_GRADIENTS: ThemeGradients = {
-  minimal: { fab: ['#D9A05B', '#A88174', '#C55252'], draw: ['#718E9E', '#6D8E7D', '#344945'] },
-  garden: { fab: ['#B4BD62', '#6D8E7D', '#344945'], draw: ['#8EBD9D', '#667264', '#344945'] },
-  midnight: { fab: ['#F07AD9', '#364C84', '#DDF57A'], draw: ['#364C84', '#6E7FBC', '#DDF57A'] },
-  sunlight: { fab: ['#FAD564', '#E86E49', '#95B1EE'], draw: ['#95B1EE', '#D5E3E8', '#FAD564'] },
+const ACTION_GRADIENTS: ActionGradients = {
+  fab: ['#57CD42', '#71C66A', '#D2E268'],
+  draw: ['#BCEAC1', '#A0E49C', '#EDF684'],
 };
-const normalizeGradients = (saved: ThemeGradients | ActionGradients): ThemeGradients => {
-  if ('minimal' in saved) return saved;
-  return Object.fromEntries((Object.keys(THEMES) as ThemeName[]).map(key => [key, { fab: [...saved.fab] as GradientColors, draw: [...saved.draw] as GradientColors }])) as ThemeGradients;
-};
-const normalizePalettes = (saved: Partial<Record<ThemeName, Partial<ThemeColors>>>, defaults: ThemePalettes): ThemePalettes => Object.fromEntries((Object.keys(THEMES) as ThemeName[]).map(key => { const colors = saved[key] ?? {}; return [key, { ...defaults[key], ...colors }]; })) as ThemePalettes;
 const translucentGradient = (colors: GradientColors): GradientColors => colors.map(color => `${color}B3`) as GradientColors;
-if (__DEV__) { const migrated = normalizeGradients({ fab: ['#111111', '#222222', '#333333'], draw: ['#444444', '#555555', '#666666'] }); const defaults = Object.fromEntries((Object.keys(THEMES) as ThemeName[]).map(key => [key, THEMES[key].colors])) as ThemePalettes; const palettes = normalizePalettes({ minimal: { panel: '#123456' } }, defaults); console.assert(migrated.minimal.fab[1] === '#222222' && migrated.minimal.fab !== migrated.midnight.fab, 'Gradient migration failed'); console.assert(palettes.minimal.panel === '#123456' && palettes.garden.navOn === defaults.garden.navOn, 'Palette migration failed'); }
 const haptic = {
   select: () => void Haptics.selectionAsync(),
   light: () => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
@@ -112,22 +102,15 @@ function Button({ title, onPress, tone = 'dark', icon, feedback = true }: { titl
 
 export default function App() {
   const [theme, setTheme] = useState<ThemeName>('minimal');
-  const defaults = useMemo(() => Object.fromEntries((Object.keys(THEMES) as ThemeName[]).map(key => [key, THEMES[key].colors])) as ThemePalettes, []);
-  const [palettes, setPalettes] = useState<ThemePalettes>(defaults);
-  const [gradients, setGradients] = useState<ThemeGradients>(DEFAULT_GRADIENTS);
-  const [cardBorder, setCardBorderState] = useState(false);
   const [lang, setLangState] = useState<Lang>(deviceLang);
-  useEffect(() => { storage.load<ThemeName>('linekeep_theme', 'minimal').then(saved => setTheme(THEMES[saved] ? saved : 'minimal')); storage.load<Partial<Record<ThemeName, Partial<ThemeColors>>>>('linekeep_palettes', defaults).then(saved => setPalettes(normalizePalettes(saved, defaults))); storage.load<ThemeGradients | ActionGradients>('passage_action_gradients', DEFAULT_GRADIENTS).then(saved => setGradients(normalizeGradients(saved))); storage.load<boolean>('passage_card_border', false).then(setCardBorderState); storage.load<Lang | null>('passage_lang', null).then(saved => saved && setLangState(saved)); }, [defaults]);
-  const setCardBorder = (next: boolean) => { setCardBorderState(next); storage.save('passage_card_border', next); };
+  useEffect(() => { storage.load<ThemeName>('linekeep_theme', 'minimal').then(saved => setTheme(THEMES[saved] ? saved : 'minimal')); storage.load<Lang | null>('passage_lang', null).then(saved => saved && setLangState(saved)); }, []);
   const setLang = (next: Lang) => { setLangState(next); storage.save('passage_lang', next); };
-  const colors = palettes[theme];
-  const value = useMemo(() => ({ colors, styles: createStyles(colors, cardBorder && theme === 'sunlight'), t: makeT(lang), lang }), [colors, cardBorder, theme, lang]);
-  const setColor = (name: ThemeName, role: keyof ThemeColors, color: string, persist = true) => setPalettes(current => { const next = { ...current, [name]: { ...current[name], [role]: color } }; if (persist) storage.save('linekeep_palettes', next); return next; });
-  const setGradientColor = (themeName: ThemeName, name: keyof ActionGradients, index: number, color: string, persist = true) => setGradients(current => { const colors = [...current[themeName][name]] as GradientColors; colors[index] = color; const next = { ...current, [themeName]: { ...current[themeName], [name]: colors } }; if (persist) storage.save('passage_action_gradients', next); return next; });
-  return <ThemeContext.Provider value={value}><SafeAreaProvider><Main theme={theme} palettes={palettes} gradients={gradients[theme]} cardBorder={cardBorder} setCardBorder={setCardBorder} lang={lang} setLang={setLang} setGradientColor={(name, index, color, persist) => setGradientColor(theme, name, index, color, persist)} setColor={setColor} setTheme={next => { setTheme(next); storage.save('linekeep_theme', next); }} /></SafeAreaProvider></ThemeContext.Provider>;
+  const colors = THEMES[theme].colors;
+  const value = useMemo(() => ({ colors, styles: createStyles(colors), t: makeT(lang), lang }), [colors, lang]);
+  return <ThemeContext.Provider value={value}><SafeAreaProvider><Main theme={theme} gradients={ACTION_GRADIENTS} lang={lang} setLang={setLang} setTheme={next => { setTheme(next); storage.save('linekeep_theme', next); }} /></SafeAreaProvider></ThemeContext.Provider>;
 }
 
-function Main({ theme, palettes, gradients, cardBorder, setCardBorder, lang, setLang, setTheme, setColor, setGradientColor }: { theme: ThemeName; palettes: ThemePalettes; gradients: ActionGradients; cardBorder: boolean; setCardBorder: (next: boolean) => void; lang: Lang; setLang: (next: Lang) => void; setTheme: (theme: ThemeName) => void; setColor: (theme: ThemeName, role: keyof ThemeColors, color: string, persist?: boolean) => void; setGradientColor: (name: keyof ActionGradients, index: number, color: string, persist?: boolean) => void }) {
+function Main({ theme, gradients, lang, setLang, setTheme }: { theme: ThemeName; gradients: ActionGradients; lang: Lang; setLang: (next: Lang) => void; setTheme: (theme: ThemeName) => void }) {
   const { colors: C, styles: s, t } = useTheme();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<Excerpt[]>([]);
@@ -205,7 +188,7 @@ function Main({ theme, palettes, gradients, cardBorder, setCardBorder, lang, set
       {tab === 'home' && <Home items={filtered} reorderable={!search.trim() && !bookFilters.length} onReorder={commit} onScroll={onContentScroll} onEdit={setEditing} onDelete={remove} />}
       {tab === 'books' && <Books books={books} onScroll={onContentScroll} onSelect={title => { setBookFilters([title]); setTab('home'); scrollAnchor.current = 0; setNavVisible(true); }} />}
       {tab === 'dashboard' && <Dashboard items={items} books={books} onScroll={onContentScroll} />}
-      {tab === 'settings' && <Settings theme={theme} palettes={palettes} gradients={gradients} cardBorder={cardBorder} setCardBorder={setCardBorder} lang={lang} setLang={setLang} onScroll={onContentScroll} setTheme={setTheme} setColor={setColor} setGradientColor={setGradientColor}
+      {tab === 'settings' && <Settings theme={theme} lang={lang} setLang={setLang} onScroll={onContentScroll} setTheme={setTheme}
         notesCount={notes.length} onOpenNotes={() => { haptic.light(); setShowNotes(true); }}
         onExport={async () => { await Clipboard.setStringAsync(JSON.stringify(items, null, 2)); haptic.success(); Alert.alert(t('備份完成'), t('JSON 已複製到剪貼簿。')); }}
         onImport={() => setImporting(true)}
@@ -423,21 +406,15 @@ function Dashboard({ items, books, onScroll }: { items: Excerpt[]; books: { titl
   </ScrollView>;
 }
 
-function Settings({ theme, palettes, gradients, notesCount, cardBorder, setCardBorder, lang, setLang, onScroll, onOpenNotes, setTheme, setColor, setGradientColor, onExport, onImport, onRestore, onClear }: { theme: ThemeName; palettes: ThemePalettes; gradients: ActionGradients; notesCount: number; cardBorder: boolean; setCardBorder: (next: boolean) => void; lang: Lang; setLang: (next: Lang) => void; onScroll: (y: number) => void; onOpenNotes: () => void; setTheme: (v: ThemeName) => void; setColor: (theme: ThemeName, role: keyof ThemeColors, color: string, persist?: boolean) => void; setGradientColor: (name: keyof ActionGradients, index: number, color: string, persist?: boolean) => void; onExport: () => void; onImport: () => void; onRestore: () => void; onClear: () => void }) {
-  const { colors: C, styles: s, t } = useTheme();
-  const [editingTheme, setEditingTheme] = useState<ThemeName | null>(null);
-  const [editingGradient, setEditingGradient] = useState<keyof ActionGradients | null>(null);
+function Settings({ theme, notesCount, lang, setLang, onScroll, onOpenNotes, setTheme, onExport, onImport, onRestore, onClear }: { theme: ThemeName; notesCount: number; lang: Lang; setLang: (next: Lang) => void; onScroll: (y: number) => void; onOpenNotes: () => void; setTheme: (v: ThemeName) => void; onExport: () => void; onImport: () => void; onRestore: () => void; onClear: () => void }) {
+  const { styles: s, t } = useTheme();
   return <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={event => onScroll(event.nativeEvent.contentOffset.y)} contentContainerStyle={s.list}>
     <Section title={t('語言')}><View style={s.segment}><Choice active={lang === 'zh'} title="繁體中文" onPress={() => setLang('zh')} /><Choice active={lang === 'en'} title="English" onPress={() => setLang('en')} /></View></Section>
     <Section title={t('抽牌心得')}><Button title={notesCount ? `${t('查看我的心得')} (${notesCount})` : t('查看我的心得')} icon="notebook-outline" tone="light" onPress={onOpenNotes} /></Section>
-    {theme === 'sunlight' && <Section title={t('顯示樣式')}><View style={[s.filterRow, s.softSurface]}><Text style={s.filterTitle}>{t('卡片邊線')}</Text><Switch value={cardBorder} onValueChange={v => { haptic.select(); setCardBorder(v); }} trackColor={{ false: C.line, true: C.accent }} thumbColor={C.panel} /></View></Section>}
-    <Section title={t('介面配色')}><View style={s.themeList}>{(Object.keys(THEMES) as ThemeName[]).map(key => <ThemeChoice key={key} themeKey={key} colors={palettes[key]} active={theme === key} onPress={() => setTheme(key)} onEdit={() => setEditingTheme(key)} />)}</View></Section>
-    <Section title={`${t(THEMES[theme].label)} · ${t('主要按鈕漸層')}`}><GradientChoice title={t('＋ 新增書摘')} colors={gradients.fab} onPress={() => setEditingGradient('fab')} /><GradientChoice title={t('抽書籤')} colors={gradients.draw} onPress={() => setEditingGradient('draw')} /></Section>
+    <Section title={t('介面配色')}><View style={s.themeList}>{(Object.keys(THEMES) as ThemeName[]).map(key => <ThemeChoice key={key} themeKey={key} active={theme === key} onPress={() => setTheme(key)} />)}</View></Section>
     <Section title={t('資料備份與匯入')}><Button title={t('備份至剪貼簿')} icon="content-copy" tone="light" onPress={onExport} /><Button title={t('從備份匯入')} icon="tray-arrow-down" tone="light" onPress={onImport} /></Section>
     <Section title={t('系統維護與重置')}><Button title={t('恢復預設經典書摘')} icon="restore" tone="light" onPress={onRestore} /><Button title={t('清空所有書摘')} icon="trash-can-outline" tone="danger" onPress={onClear} /></Section>
     <View style={[s.about, s.softSurface]}><Text style={s.aboutTitle}>Passage 拾句</Text><Text style={s.tagline}>WORDS WORTH MEETING AGAIN.</Text><Text style={s.aboutText}>{t('收藏曾與你相遇的句子，讓值得重讀的片刻，再次回到日常。')}</Text></View>
-    <ColorEditor themeName={editingTheme} colors={editingTheme ? palettes[editingTheme] : palettes.minimal} onChange={(role, color, persist) => editingTheme && setColor(editingTheme, role, color, persist)} onClose={() => setEditingTheme(null)} />
-    <GradientEditor name={editingGradient} colors={editingGradient ? gradients[editingGradient] : gradients.fab} onChange={(index, color, persist) => editingGradient && setGradientColor(editingGradient, index, color, persist)} onClose={() => setEditingGradient(null)} />
   </ScrollView>;
 }
 
@@ -469,9 +446,7 @@ function NotesPage({ visible, notes, onClose, onDelete }: { visible: boolean; no
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) { const { styles: s } = useTheme(); return <View style={[s.section, s.softSurface]}><Text style={s.sectionTitle}>{title}</Text>{children}</View>; }
 function Choice({ active, title, onPress }: { active: boolean; title: string; onPress: () => void }) { const { styles: s } = useTheme(); return <Pressable onPress={() => { if (!active) haptic.select(); onPress(); }} style={[s.choice, active && s.choiceActive]}><Text style={[s.choiceText, active && s.white]}>{title}</Text></Pressable>; }
-function ThemeChoice({ themeKey, colors, active, onPress, onEdit }: { themeKey: ThemeName; colors: ThemeColors; active: boolean; onPress: () => void; onEdit: () => void }) { const { colors: C, styles: s, t } = useTheme(); const option = THEMES[themeKey]; return <Pressable accessibilityRole="radio" accessibilityState={{ selected: active }} onPress={() => { if (!active) haptic.select(); onPress(); }} style={[s.themeChoice, active && s.themeChoiceActive]}><View style={s.themeSwatches}>{Object.values(colors).slice(0, 5).map((color, i) => <View key={`${color}-${i}`} style={[s.themeSwatch, { backgroundColor: color }]} />)}</View><Text style={s.themeName}>{t(option.label)}</Text>{active && <Icon name="check-circle" size={20} color={C.accent} />}<Pressable accessibilityLabel={t(option.label)} onPress={event => { event.stopPropagation(); haptic.light(); onEdit(); }} style={s.themeEdit}><Icon name="eyedropper-variant" size={19} color={C.ink} /></Pressable></Pressable>; }
-function GradientChoice({ title, colors, onPress }: { title: string; colors: GradientColors; onPress: () => void }) { const { colors: C, styles: s } = useTheme(); return <Pressable accessibilityLabel={title} onPress={() => { haptic.light(); onPress(); }} style={({ pressed }) => [s.gradientChoice, pressed && s.pressed]}><LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.gradientPreview} /><Text style={s.gradientChoiceText}>{title}</Text><Icon name="chevron-right" size={21} color={C.muted} /></Pressable>; }
-
+function ThemeChoice({ themeKey, active, onPress }: { themeKey: ThemeName; active: boolean; onPress: () => void }) { const { colors: C, styles: s, t } = useTheme(); const option = THEMES[themeKey]; return <Pressable accessibilityRole="radio" accessibilityState={{ selected: active }} onPress={() => { if (!active) haptic.select(); onPress(); }} style={[s.themeChoice, active && s.themeChoiceActive]}><View style={s.themeSwatches}>{Object.values(option.colors).slice(0, 5).map((color, i) => <View key={`${color}-${i}`} style={[s.themeSwatch, { backgroundColor: color }]} />)}</View><Text style={s.themeName}>{t(option.label)}</Text>{active && <Icon name="check-circle" size={20} color={C.accent} />}</Pressable>; }
 const COLOR_ROLES: { key: keyof ThemeColors; label: string }[] = [{ key: 'bg', label: '背景' }, { key: 'panel', label: '面板' }, { key: 'navOn', label: '導航圖示(選中)' }, { key: 'navOff', label: '導航圖示(未選)' }, { key: 'ink', label: '主要文字' }, { key: 'muted', label: '次要文字' }, { key: 'accent', label: '強調' }, { key: 'danger', label: '警示' }, { key: 'line', label: '分隔線' }];
 const validHex = (value: string) => /^#[0-9A-F]{6}$/i.test(value);
 const isDark = (color: string) => { const n = Number.parseInt(color.slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) < 128000; };
@@ -512,19 +487,6 @@ function ColorEditor({ themeName, colors, onChange, onClose }: { themeName: Them
     <Text style={s.label}>{t('輸入色號')}</Text><View style={s.hexRow}><View style={[s.hexPreview, { backgroundColor: validHex(hex) ? hex : colors[role] }]} /><TextInput accessibilityLabel={t('HEX 色號')} autoCapitalize="characters" autoCorrect={false} maxLength={7} value={hex} onChangeText={typeHex} onEndEditing={() => setHex(colors[role])} placeholder="#RRGGBB" placeholderTextColor={C.muted} style={s.hexInput} /></View>
   </Sheet>;
 }
-function GradientEditor({ name, colors, onChange, onClose }: { name: keyof ActionGradients | null; colors: GradientColors; onChange: (index: number, color: string, persist?: boolean) => void; onClose: () => void }) {
-  const { colors: C, styles: s, t } = useTheme();
-  const [index, setIndex] = useState(0); const [hex, setHex] = useState(colors[0]);
-  useEffect(() => { if (name) { setIndex(0); setHex(colors[0]); } }, [name]);
-  useEffect(() => { setHex(colors[index]); }, [colors, index]);
-  const typeHex = (value: string) => { const next = `#${value.replace(/[^0-9a-f]/gi, '').slice(0, 6)}`.toUpperCase(); setHex(next); if (validHex(next)) onChange(index, next); };
-  return <Sheet visible={!!name} title={`${name === 'fab' ? t('＋ 新增書摘') : t('抽書籤')} · ${t('漸層')}`} onClose={onClose}>
-    <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.gradientHero} />
-    <Text style={s.label}>{t('選擇色點')}</Text><View style={s.gradientStops}>{colors.map((color, i) => <Pressable key={i} accessibilityRole="radio" accessibilityState={{ selected: index === i }} accessibilityLabel={`${t('漸層色')} ${i + 1}`} onPress={() => { setIndex(i); haptic.select(); }} style={[s.gradientStop, { backgroundColor: color }, index === i && s.gradientStopActive]}><Text style={[s.gradientStopLabel, { color: isDark(color) ? '#fff' : '#252725' }]}>{i + 1}</Text></Pressable>)}</View>
-    <Text style={s.label}>{t('精準選色')}</Text><PrecisionColorPicker value={colors[index]} onChange={color => { setHex(color); onChange(index, color, false); }} onComplete={color => { setHex(color); onChange(index, color); }} />
-    <Text style={s.label}>{t('輸入色號')}</Text><View style={s.hexRow}><View style={[s.hexPreview, { backgroundColor: validHex(hex) ? hex : colors[index] }]} /><TextInput accessibilityLabel={t('HEX 色號')} autoCapitalize="characters" autoCorrect={false} maxLength={7} value={hex} onChangeText={typeHex} onEndEditing={() => setHex(colors[index])} placeholder="#RRGGBB" placeholderTextColor={C.muted} style={s.hexInput} /></View>
-  </Sheet>;
-}
 function Empty({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) { const { colors: C, styles: s } = useTheme(); return <View style={s.empty}><Icon name={icon as never} size={28} color={C.accent} /><Text style={s.emptyTitle}>{title}</Text><Text style={s.muted}>{subtitle}</Text></View>; }
 
 function Editor({ visible, item, onClose, onSave }: { visible: boolean; item: Excerpt | null; onClose: () => void; onSave: (x: Excerpt) => void }) {
@@ -539,8 +501,8 @@ function BookFilter({ visible, books, selected, onToggle, onClear, onClose }: { 
 function Field(props: React.ComponentProps<typeof TextInput> & { label: string }) { const { colors: C, styles: s } = useTheme(); const { label, multiline, ...input } = props; return <View><Text style={s.label}>{label}</Text><TextInput {...input} multiline={multiline} textAlignVertical="top" placeholderTextColor={C.muted} style={[s.input, multiline && s.textarea]} /></View>; }
 function Sheet({ visible, tall = false, title, onClose, children }: { visible: boolean; tall?: boolean; title: string; onClose: () => void; children: React.ReactNode }) { const { colors: C, styles: s, t } = useTheme(); return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><SafeAreaProvider><SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={s.overlay}><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? tall ? 'height' : 'padding' : undefined} style={s.sheetAvoider}><View style={[s.sheet, tall && s.sheetTall]}><View style={s.titleRow}><Text style={s.title}>{title}</Text><Pressable accessibilityLabel={t('關閉')} onPress={onClose} style={s.iconButton}><Icon name="close" size={20} color={C.muted} /></Pressable></View><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.form}>{children}</ScrollView></View></KeyboardAvoidingView></SafeAreaView></SafeAreaProvider></Modal>; }
 
-function createStyles(C: ThemeColors, cardBorder = false) {
-  const depth = { ...(cardBorder && { borderWidth: 1, borderColor: C.line }), shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 } as const;
+function createStyles(C: ThemeColors) {
+  const depth = { shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 } as const;
   const lift = { shadowColor: C.ink, shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 } as const;
   const softSurface = { shadowColor: C.ink, shadowOpacity: 0.02, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 0 } as const;
   return StyleSheet.create({
@@ -567,7 +529,7 @@ function createStyles(C: ThemeColors, cardBorder = false) {
   displayToggle: { flexDirection: 'row', minHeight: 52, marginBottom: 14, padding: 4, borderRadius: 14, backgroundColor: C.panel }, bookRow: { gap: 14 }, cover: { flex: 1, height: 205, borderRadius: 18, padding: 18, marginBottom: 14, overflow: 'hidden', justifyContent: 'space-between', borderWidth: 1, borderColor: C.line }, spine: { position: 'absolute', width: 14, left: 0, top: 0, bottom: 0, backgroundColor: '#00000020' }, coverMeta: { color: '#FFFFFFAA', fontSize: 12, letterSpacing: 1.5 }, coverTitle: { color: '#fff', fontSize: 18, lineHeight: 26, fontWeight: '700' }, coverAuthor: { color: '#FFFFFFBB', fontSize: 12 }, coverCount: { color: '#fff', fontWeight: '800', marginTop: 5 }, spineBook: { minHeight: 76, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: C.line }, spineBookBody: { flex: 1, gap: 4 }, spineBookTitle: { color: '#fff', fontSize: 16, lineHeight: 23, fontWeight: '800' }, spineBookAuthor: { color: '#FFFFFFCC', fontSize: 13 }, spineBookCount: { color: '#fff', fontSize: 16, fontWeight: '900' },
   stats: { flexDirection: 'row', gap: 8 }, stat: { flex: 1, backgroundColor: C.panel, borderRadius: 17, padding: 13, alignItems: 'center' }, statLabel: { fontSize: 12, color: C.muted, fontWeight: '700' }, statValue: { fontSize: 26, color: C.ink, fontWeight: '700', marginTop: 4 }, section: { backgroundColor: C.panel, borderRadius: 22, padding: 16, gap: 11 }, sectionTitle: { color: C.muted, fontSize: 13, letterSpacing: 1, fontWeight: '700', paddingBottom: 4 }, rank: { flexDirection: 'row', justifyContent: 'space-between' }, rankName: { color: C.ink, fontSize: 15, fontWeight: '600' }, rankCount: { color: C.accent, fontSize: 14, fontWeight: '700' }, palette: { height: 16, flexDirection: 'row', borderRadius: 8, overflow: 'hidden' }, paletteItem: { height: '100%' }, insight: { color: C.ink, fontSize: 16, lineHeight: 25 },
   label: { color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 3, marginBottom: 7 }, segment: { flexDirection: 'row', backgroundColor: C.bg, padding: 4, borderRadius: 12 }, choice: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 9 }, choiceActive: { backgroundColor: C.ink }, choiceText: { color: C.muted, fontSize: 12, fontWeight: '700' },
-  themeList: { gap: 8 }, themeChoice: { minHeight: 58, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14, backgroundColor: C.bg, flexDirection: 'row', alignItems: 'center', gap: 10 }, themeChoiceActive: { backgroundColor: C.panel }, themeSwatches: { width: 72, height: 28, borderRadius: 8, overflow: 'hidden', flexDirection: 'row' }, themeSwatch: { flex: 1 }, themeName: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' }, themeEdit: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: C.panel }, gradientChoice: { minHeight: 56, paddingHorizontal: 10, borderRadius: 14, backgroundColor: C.bg, flexDirection: 'row', alignItems: 'center', gap: 12 }, gradientPreview: { width: 72, height: 34, borderRadius: 10 }, gradientChoiceText: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' }, gradientHero: { height: 82, borderRadius: 18 }, gradientStops: { flexDirection: 'row', gap: 12 }, gradientStop: { flex: 1, minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', opacity: .72 }, gradientStopActive: { opacity: 1, transform: [{ scale: 1.04 }] }, gradientStopLabel: { fontSize: 15, fontWeight: '900' },
+  themeList: { gap: 8 }, themeChoice: { minHeight: 58, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14, backgroundColor: C.bg, flexDirection: 'row', alignItems: 'center', gap: 10 }, themeChoiceActive: { backgroundColor: C.panel }, themeSwatches: { width: 72, height: 28, borderRadius: 8, overflow: 'hidden', flexDirection: 'row' }, themeSwatch: { flex: 1 }, themeName: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' }, themeEdit: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: C.panel },
   colorRoles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, colorRole: { minHeight: 44, paddingHorizontal: 11, borderRadius: 12, backgroundColor: C.panel, flexDirection: 'row', alignItems: 'center', gap: 7 }, colorRoleActive: { backgroundColor: C.line }, colorRoleText: { color: C.muted, fontSize: 13, fontWeight: '700' }, colorRoleTextActive: { color: C.ink }, colorDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: C.line }, precisionPicker: { gap: 12 }, svPicker: { height: 180, borderRadius: 14, overflow: 'hidden' }, pickerStrip: { flex: 1, flexDirection: 'row' }, pickerPixel: { flex: 1 }, pickerThumb: { position: 'absolute', width: 20, height: 20, marginLeft: -10, marginTop: -10, borderRadius: 10, borderWidth: 3, borderColor: '#fff' }, huePicker: { height: 44, borderRadius: 12, overflow: 'hidden' }, hueSpectrum: { ...StyleSheet.absoluteFillObject, flexDirection: 'row' }, huePixel: { flex: 1 }, hueThumb: { position: 'absolute', top: 0, bottom: 0, width: 4, marginLeft: -2, backgroundColor: '#fff', borderWidth: 1, borderColor: '#252725' }, pickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, pickerColor: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }, hexRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 }, hexPreview: { width: 48, height: 48, borderRadius: 14 }, hexInput: { flex: 1, minWidth: 0, minHeight: 48, borderRadius: 14, paddingHorizontal: 14, backgroundColor: C.panel, borderWidth: 1, borderColor: C.line, color: C.ink, fontSize: 16, fontWeight: '700', letterSpacing: 1 },
   button: { minHeight: 46, borderRadius: 14, paddingHorizontal: 16, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' }, button_dark: { backgroundColor: C.ink }, button_light: { backgroundColor: C.panel }, button_danger: { backgroundColor: C.panel }, buttonText: { fontSize: 15, fontWeight: '800' }, white: { color: C.bg }, ink: { color: C.ink }, danger: { color: C.danger }, pressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
   about: { backgroundColor: C.panel, borderRadius: 22, padding: 20, alignItems: 'center' }, aboutTitle: { color: C.ink, fontWeight: '800' }, aboutText: { color: C.muted, textAlign: 'center', fontSize: 14, lineHeight: 22, marginTop: 10, maxWidth: 280 },

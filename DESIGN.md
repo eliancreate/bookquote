@@ -13,36 +13,36 @@
 
 ## 2. 主題與語意色
 
-使用者可在設定頁即時切換主題，選擇保存於 `linekeep_theme`。每套主題的 `bg / panel / nav / ink / muted / accent / danger / line` 八個語意色可透過 HSV 連續色域與 HEX 色號獨立調整，保存於 `linekeep_palettes`；元件不得直接寫入主題色。
+使用者可在設定頁即時切換主題，選擇保存於 `linekeep_theme`。每套主題的語意色固定寫在程式碼中，設定頁不提供 HSV 或 HEX 自訂入口；元件不得直接寫入主題色。
 
 ### 極簡色調（預設）
 
-- `bg #F3F4F2`、`panel #FAFAF8`、`ink #252725`
-- `muted #767B78`、`accent #718E9E`、`danger #C55252`、`line #DFE1DE`
+- `bg #F1F2F3`、`panel #FAFAF8`、`navOn #718E9E`、`navOff #767B78`
+- `ink #252725`、`muted #606061`、`accent #74D6FD`、`danger #C55252`、`line #DFE1DE`
 
 ### 花園藤椅
 
 沉靜綠色與石材大地色，採用 Shell `#F7F5F1`、Stone `#E0DCD1`、Light Olive `#B4BD62`、Viridian `#344945`。
 
-- `bg #F7F5F1`、`panel #E0DCD1`、`ink #344945`
-- `muted #667264`、`accent #B4BD62`、`danger #A45244`、`line #C9C5B8`
+- `bg #DDCEB3`、`panel #FFFFFF`、`navOn #8E954C`、`navOff #667264`
+- `ink #301F1F`、`muted #0D5437`、`accent #B3BD4F`、`danger #A45244`、`line #C9C5B8`
 
 ### 午夜霓虹
 
 唯一深色主題，背景接近黑夜但保留午夜藍色相。由 Midnight Blue `#364C84`、Lavender Mist `#D0D9F5`、Lemonade Green `#E7F1AB` 向更深、更高對比的功能色延伸；霓虹只作單一功能強調，不使用外發光。
 
-- `bg #080D1C`、`panel #111A35`、`ink #F7F5F1`
-- `muted #B7C3E7`、`accent #DDF57A`、`danger #F07AD9`、`line #24345F`
+- `bg #09090C`、`panel #1A2127`、`navOn #CEE218`、`navOff #1988A7`
+- `ink #CECDDC`、`muted #1992A7`、`accent #D30CB1`、`danger #D3310C`、`line #1F2126`
 - 預設狀態列使用亮色圖示；自訂背景後依背景明度自動切換圖示
 
 ### 日光閃爍
 
 藍天、白雲與日光黃，採用 Sky `#D5E3E8`、Sky Blue `#95B1EE`、Ivory Glow `#FFFDF5`、Naples `#FAD564`。
 
-- `bg #D5E3E8`、`panel #FFFDF5`、`ink #1B475D`
-- `muted #567482`、`accent #FAD564`、`danger #E86E49`、`line #95B1EE`
+- `bg #DDE5E6`、`panel #FDFDFC`、`navOn #EC930D`、`navOff #728CA4`
+- `ink #32779B`、`muted #EC930D`、`accent #DA8210`、`danger #E86E49`、`line #7BC7E0`
 
-預設主題禁止背景漸層、純黑與彩色陰影；自訂色可接受完整 HEX 色域。每套介面配色各自保存「＋ 新增書摘」與「抽書籤」的獨立三色漸層，資料保存於 `passage_action_gradients`；切換主題時同步套用對應漸層。主題色不取代封面色；新書籍封面使用系統預設色彩。
+預設主題禁止背景漸層、純黑與彩色陰影；自訂色可接受完整 HEX 色域。「＋ 新增書摘」固定使用 `#57CD42 → #71C66A → #D2E268`，「抽書籤」固定使用 `#BCEAC1 → #A0E49C → #EDF684`；所有主題共用且使用者不可修改。主題色不取代封面色；新書籍封面使用系統預設色彩。
 
 ## 3. 字體與層級
 
@@ -66,13 +66,13 @@
 - 圖示按鈕與所有觸控目標：至少 44×44px
 - Bottom sheet：頂部圓角 30px，一般最大高度 92%；新增／編輯書摘使用 safe area 內 96% 高度
 - Bottom sheet 顯示時背景保持原色，不加暗色遮罩或模糊效果
-- 首頁書摘卡與書櫃書本保留細邊與柔和陰影；其餘卡片與按鈕不使用邊線，只保留極淡表面陰影。輸入框與選色游標可保留操作性邊界
+- 首頁書摘卡不使用邊線，只保留柔和陰影；書櫃書本與輸入框可保留操作性邊界
 
 ## 5. 核心元件
 
 ### 書摘卡片
 
-- 使用 `Warm Card`，搭配低對比細邊與極淡同色系陰影
+- 使用 `Warm Card`，不加邊線，只保留極淡同色系陰影
 - 書摘內容在可用區域水平與垂直置中，不顯示外層引號
 - 書名與作者靠齊右下角
 - 預設只顯示書摘、書名、作者
