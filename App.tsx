@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo, Alert, Animated, FlatList, KeyboardAvoidingView, Modal, NativeModules, PanResponder, Platform, Pressable,
-  Image, ScrollView, Share, StyleSheet, Text, TextInput, View,
+  Image, NativeScrollEvent, NativeSyntheticEvent, ScrollView, Share, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -162,7 +162,7 @@ function Main({ theme, gradients, lang, setLang, setTheme }: { theme: ThemeName;
   ]);
   const draw = () => { haptic.medium(); setFeatured(filtered[Math.floor(Math.random() * filtered.length)]); setHasDrawnToday(true); storage.save('passage_last_draw_date', todayKey()); };
   const setNavVisible = (visible: boolean) => { if (navHidden.current === !visible) return; navHidden.current = !visible; Animated.timing(navMotion, { toValue: visible ? 0 : 1, duration: reduceMotion ? 0 : 180, useNativeDriver: true }).start(); };
-  const onContentScroll = (y: number) => { if (y < 8) { scrollAnchor.current = y; setNavVisible(true); return; } const distance = y - scrollAnchor.current; if (Math.abs(distance) < 12) return; setNavVisible(distance < 0); scrollAnchor.current = y; };
+  const onContentScroll = ({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }: NativeSyntheticEvent<NativeScrollEvent>) => { const y = contentOffset.y; if (y < 8 || y + layoutMeasurement.height >= contentSize.height - 8) { scrollAnchor.current = y; setNavVisible(true); return; } const distance = y - scrollAnchor.current; if (Math.abs(distance) < 12) return; setNavVisible(distance < 0); scrollAnchor.current = y; };
 
   if (!ready) return <SafeAreaView style={s.screen}><Text style={s.loading}>{t('正在整理書頁…')}</Text></SafeAreaView>;
   const texture = THEMES[theme].texture;
@@ -225,12 +225,12 @@ function DrawShimmer({ active, reduceMotion }: { active: boolean; reduceMotion: 
 const FAMILY = Platform.select({ ios: 'Songti TC', android: 'serif' });
 const ROW_GAP = 12;
 
-function Home({ items, reorderable, onReorder, onScroll, onEdit, onDelete }: { items: Excerpt[]; reorderable: boolean; onReorder: (next: Excerpt[]) => void; onScroll: (y: number) => void; onEdit: (x: Excerpt) => void; onDelete: (x: Excerpt) => void }) {
+function Home({ items, reorderable, onReorder, onScroll, onEdit, onDelete }: { items: Excerpt[]; reorderable: boolean; onReorder: (next: Excerpt[]) => void; onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void; onEdit: (x: Excerpt) => void; onDelete: (x: Excerpt) => void }) {
   const { styles: s, t } = useTheme();
   const { bottom } = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
   const empty = <Empty icon="book-open-blank-variant-outline" title={t('沒有找到任何書摘')} subtitle={t('點擊右下角新增一筆吧')} />;
-  if (!reorderable) return <View style={s.flex}><FlatList data={items} keyExtractor={x => x.id} contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={event => onScroll(event.nativeEvent.contentOffset.y)} onScrollBeginDrag={() => setOpenId(null)}
+  if (!reorderable) return <View style={s.flex}><FlatList data={items} keyExtractor={x => x.id} contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={onScroll} onScrollBeginDrag={() => setOpenId(null)}
       ListEmptyComponent={empty}
       renderItem={({ item }) => <QuoteCard item={item} fontSize={18} fontFamily={FAMILY} isOpen={openId === item.id} onOpen={open => setOpenId(open ? item.id : null)} onEdit={onEdit} onDelete={onDelete} />} />
   </View>;
@@ -238,7 +238,7 @@ function Home({ items, reorderable, onReorder, onScroll, onEdit, onDelete }: { i
 }
 
 // ponytail: hand-rolled long-press drag reorder over a ScrollView — no reanimated/gesture-handler/draggable-flatlist deps. Rows shift by the dragged card's height (approximate when card heights differ); good enough for this list size.
-function DraggableList({ data, openId, setOpenId, onReorder, onScroll, onEdit, onDelete, empty }: { data: Excerpt[]; openId: string | null; setOpenId: (id: string | null) => void; onReorder: (next: Excerpt[]) => void; onScroll: (y: number) => void; onEdit: (x: Excerpt) => void; onDelete: (x: Excerpt) => void; empty: React.ReactNode }) {
+function DraggableList({ data, openId, setOpenId, onReorder, onScroll, onEdit, onDelete, empty }: { data: Excerpt[]; openId: string | null; setOpenId: (id: string | null) => void; onReorder: (next: Excerpt[]) => void; onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void; onEdit: (x: Excerpt) => void; onDelete: (x: Excerpt) => void; empty: React.ReactNode }) {
   const { styles: s } = useTheme();
   const { bottom } = useSafeAreaInsets();
   const [order, setOrder] = useState(data);
@@ -272,8 +272,8 @@ function DraggableList({ data, openId, setOpenId, onReorder, onScroll, onEdit, o
     dragIdRef.current = null; setDragId(null); setScrollEnabled(true); setHoverIndex(null); dragY.setValue(0);
     if (from !== to) { const next = [...order]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); setOrder(next); onReorder(next); haptic.success(); }
   };
-  if (!order.length) return <ScrollView contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={e => onScroll(e.nativeEvent.contentOffset.y)}>{empty}</ScrollView>;
-  return <ScrollView scrollEnabled={scrollEnabled} contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={e => onScroll(e.nativeEvent.contentOffset.y)} onScrollBeginDrag={() => setOpenId(null)}>
+  if (!order.length) return <ScrollView contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={onScroll}>{empty}</ScrollView>;
+  return <ScrollView scrollEnabled={scrollEnabled} contentContainerStyle={[s.list, s.homeListTop, { paddingBottom: 170 + bottom }]} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={onScroll} onScrollBeginDrag={() => setOpenId(null)}>
     {order.map((item, index) => <DragRow key={item.id} item={item} index={index} dragId={dragId} originIndex={originIndex.current} hoverIndex={hoverIndex} dragH={dragH.current} dragY={dragY} dragIdRef={dragIdRef} openId={openId} setOpenId={setOpenId} onStart={start} onMove={move} onEnd={end} onEdit={onEdit} onDelete={onDelete} onMeasure={h => { heights.current[item.id] = h; }} />)}
   </ScrollView>;
 }
@@ -386,21 +386,21 @@ function QuoteCard({ item, fontSize, fontFamily, isOpen, onOpen, onEdit, onDelet
   </View>;
 }
 
-function Books({ books, onScroll, onSelect }: { books: { title: string; author: string; color: string; quotes: Excerpt[] }[]; onScroll: (y: number) => void; onSelect: (s: string) => void }) {
+function Books({ books, onScroll, onSelect }: { books: { title: string; author: string; color: string; quotes: Excerpt[] }[]; onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void; onSelect: (s: string) => void }) {
   const { styles: s, t } = useTheme();
   const [display, setDisplay] = useState<'spine' | 'cover'>('cover');
-  return <View style={s.flex}><View style={[s.displayToggle, s.softSurface]}><Choice active={display === 'spine'} title={t('書背展示')} onPress={() => setDisplay('spine')} /><Choice active={display === 'cover'} title={t('書封展示')} onPress={() => setDisplay('cover')} /></View><FlatList key={display} data={books} keyExtractor={x => x.title} numColumns={display === 'cover' ? 2 : 1} columnWrapperStyle={display === 'cover' ? s.bookRow : undefined} contentContainerStyle={s.list} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={event => onScroll(event.nativeEvent.contentOffset.y)}
+  return <View style={s.flex}><View style={[s.displayToggle, s.softSurface]}><Choice active={display === 'spine'} title={t('書背展示')} onPress={() => setDisplay('spine')} /><Choice active={display === 'cover'} title={t('書封展示')} onPress={() => setDisplay('cover')} /></View><FlatList key={display} data={books} keyExtractor={x => x.title} numColumns={display === 'cover' ? 2 : 1} columnWrapperStyle={display === 'cover' ? s.bookRow : undefined} contentContainerStyle={s.list} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={onScroll}
     ListEmptyComponent={<Empty icon="bookshelf" title={t('尚無書籍')} subtitle={t('新增書摘後會自動生成書籍')} />}
     renderItem={({ item }) => display === 'cover' ? <Pressable onPress={() => { haptic.select(); onSelect(item.title); }} style={({ pressed }) => [s.cover, s.lift, { backgroundColor: item.color }, pressed && s.pressed]}><View style={s.spine} /><Text style={s.coverMeta}>{item.quotes.length} EXCERPTS</Text><Text style={s.coverTitle}>《{item.title}》</Text><View><Text numberOfLines={1} style={s.coverAuthor}>{item.author}</Text><Text style={s.coverCount}>{item.quotes.length}</Text></View></Pressable>
       : <Pressable onPress={() => { haptic.select(); onSelect(item.title); }} style={({ pressed }) => [s.spineBook, s.lift, { backgroundColor: item.color }, pressed && s.pressed]}><View style={s.spineBookBody}><Text style={s.spineBookTitle}>《{item.title}》</Text><Text style={s.spineBookAuthor}>{item.author}</Text></View><Text style={s.spineBookCount}>{item.quotes.length}</Text></Pressable>} /></View>;
 }
 
-function Dashboard({ items, books, onScroll }: { items: Excerpt[]; books: { title: string; author: string; color: string; quotes: Excerpt[] }[]; onScroll: (y: number) => void }) {
+function Dashboard({ items, books, onScroll }: { items: Excerpt[]; books: { title: string; author: string; color: string; quotes: Excerpt[] }[]; onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const { styles: s, t } = useTheme();
   const authors = new Set(items.map(x => x.author)).size;
   const top = [...books].sort((a, b) => b.quotes.length - a.quotes.length).slice(0, 3);
   const longest = items.reduce<Excerpt | null>((a, b) => !a || b.quote.length > a.quote.length ? b : a, null);
-  return <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={event => onScroll(event.nativeEvent.contentOffset.y)} contentContainerStyle={s.list}>
+  return <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={onScroll} contentContainerStyle={s.list}>
     <View style={s.stats}>{([['書摘總數', items.length], ['精選藏書', books.length], ['涉及作家', authors]] as [string, number][]).map(([label, value]) => <View key={label} style={[s.stat, s.softSurface]}><Text style={s.statLabel}>{t(label)}</Text><Text style={s.statValue}>{value}</Text></View>)}</View>
     <Section title={t('心頭好書籍 · TOP 3')}>{top.length ? top.map((b, i) => <View key={b.title} style={s.rank}><Text style={s.rankName}>{i + 1}. 《{b.title}》</Text><Text style={s.rankCount}>{b.quotes.length} {t('條')}</Text></View>) : <Text style={s.muted}>{t('尚無書籍分類')}</Text>}</Section>
     <Section title={t('閱讀色彩美學偏好')}><View style={s.palette}>{COLORS.map(color => <View key={color} style={[s.paletteItem, { backgroundColor: color, flex: Math.max(1, items.filter(x => x.coverColor === color).length) }]} />)}</View></Section>
@@ -408,9 +408,9 @@ function Dashboard({ items, books, onScroll }: { items: Excerpt[]; books: { titl
   </ScrollView>;
 }
 
-function Settings({ theme, notesCount, lang, setLang, onScroll, onOpenNotes, setTheme, onExport, onImport, onRestore, onClear }: { theme: ThemeName; notesCount: number; lang: Lang; setLang: (next: Lang) => void; onScroll: (y: number) => void; onOpenNotes: () => void; setTheme: (v: ThemeName) => void; onExport: () => void; onImport: () => void; onRestore: () => void; onClear: () => void }) {
+function Settings({ theme, notesCount, lang, setLang, onScroll, onOpenNotes, setTheme, onExport, onImport, onRestore, onClear }: { theme: ThemeName; notesCount: number; lang: Lang; setLang: (next: Lang) => void; onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void; onOpenNotes: () => void; setTheme: (v: ThemeName) => void; onExport: () => void; onImport: () => void; onRestore: () => void; onClear: () => void }) {
   const { styles: s, t } = useTheme();
-  return <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={event => onScroll(event.nativeEvent.contentOffset.y)} contentContainerStyle={s.list}>
+  return <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={onScroll} contentContainerStyle={s.list}>
     <Section title={t('語言')}><View style={s.segment}><Choice active={lang === 'zh'} title="繁體中文" onPress={() => setLang('zh')} /><Choice active={lang === 'en'} title="English" onPress={() => setLang('en')} /></View></Section>
     <Section title={t('抽牌心得')}><Button title={notesCount ? `${t('查看我的心得')} (${notesCount})` : t('查看我的心得')} icon="notebook-outline" tone="light" onPress={onOpenNotes} /></Section>
     <Section title={t('介面配色')}><View style={s.themeList}>{(Object.keys(THEMES) as ThemeName[]).map(key => <ThemeChoice key={key} themeKey={key} active={theme === key} onPress={() => setTheme(key)} />)}</View></Section>
