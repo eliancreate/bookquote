@@ -55,11 +55,13 @@ const EN: Record<string, string> = {
   '此操作無法復原。': 'This cannot be undone.', '取消': 'Cancel', '刪除': 'Delete', '無法匯入': 'Import failed', '請確認貼上的是有效的書摘 JSON 陣列。': 'Make sure you pasted a valid excerpt JSON array.', '新增書摘後會自動生成書籍': 'Books are generated from your excerpts', '飽和度與明度選色區': 'Saturation and brightness picker', '色相選擇條': 'Hue slider', '恢復預設': 'Restore defaults', '目前書摘將被覆蓋。': 'Current excerpts will be overwritten.', '恢復': 'Restore', '清空': 'Clear', '備份完成': 'Backup complete', 'JSON 已複製到剪貼簿。': 'JSON copied to clipboard.',
 };
 // ponytail: read device locale from RN NativeModules — no expo-localization dep. Swap to expo-localization if more locales/region logic is needed.
-const deviceLang = (): Lang => {
+const deviceLocale = () => {
   const sm = NativeModules.SettingsManager?.settings;
-  const locale: string = sm?.AppleLocale || sm?.AppleLanguages?.[0] || NativeModules.I18nManager?.localeIdentifier || '';
-  return /^zh/i.test(locale) ? 'zh' : 'en';
+  return (sm?.AppleLocale || sm?.AppleLanguages?.[0] || NativeModules.I18nManager?.localeIdentifier || '') as string;
 };
+const deviceLang = (): Lang => /^zh/i.test(deviceLocale()) ? 'zh' : 'en';
+const localeRegion = (locale: string) => locale.split('@')[0].match(/[-_]([A-Z]{2})(?:$|[-_])/i)?.[1].toUpperCase() ?? '';
+const deviceRegion = () => localeRegion(deviceLocale());
 const makeT = (lang: Lang) => (key: string) => lang === 'en' ? (EN[key] ?? key) : key;
 const ThemeContext = React.createContext<{ colors: ThemeColors; styles: ReturnType<typeof createStyles>; t: (key: string) => string; lang: Lang } | null>(null);
 const useTheme = () => { const value = React.useContext(ThemeContext); if (!value) throw Error('ThemeProvider missing'); return value; };
@@ -77,12 +79,20 @@ const haptic = {
   warning: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
   error: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
 };
-const INITIAL: Excerpt[] = [
+const INITIAL_ZH: Excerpt[] = [
   { id: '1', quote: '「閱讀是一座隨身攜帶的小型避難所。」', bookTitle: '月亮與六便士', author: '威廉·薩默塞特·毛姆', coverColor: '#8DA6B5', createdAt: 1719541200000 },
   { id: '2', quote: '「你必須在內心深處有一片即便在最惡劣的氣候下也能生存的森林。」', bookTitle: '挪威的森林', author: '村上春樹', coverColor: '#252725', createdAt: 1719541100000 },
   { id: '3', quote: '「一個人可以被毀滅，但不能給打敗。」', bookTitle: '老人與海', author: '歐內斯特·海明威', coverColor: '#D9A05B', createdAt: 1719541000000 },
   { id: '4', quote: '「唯有誠實地面對自己，我們才能真正獲得自由。」', bookTitle: '德米安', author: '赫曼·赫塞', coverColor: '#6D8E7D', createdAt: 1719540900000 },
 ];
+const INITIAL_EN: Excerpt[] = [
+  { id: '1', quote: '“It is a truth universally acknowledged.”', bookTitle: 'Pride and Prejudice', author: 'Jane Austen', coverColor: '#8DA6B5', createdAt: 1719541200000 },
+  { id: '2', quote: '“There is no charm equal to tenderness of heart.”', bookTitle: 'Emma', author: 'Jane Austen', coverColor: '#252725', createdAt: 1719541100000 },
+  { id: '3', quote: '“It was the best of times, it was the worst of times.”', bookTitle: 'A Tale of Two Cities', author: 'Charles Dickens', coverColor: '#D9A05B', createdAt: 1719541000000 },
+  { id: '4', quote: '“I am no bird; and no net ensnares me.”', bookTitle: 'Jane Eyre', author: 'Charlotte Brontë', coverColor: '#6D8E7D', createdAt: 1719540900000 },
+];
+const defaultExcerpts = () => deviceRegion() === 'TW' ? INITIAL_ZH : INITIAL_EN;
+if (__DEV__) console.assert(localeRegion('zh-Hant-TW') === 'TW' && localeRegion('en_SG') === 'SG', 'Region detection failed');
 
 const storage = {
   async load<T>(key: string, fallback: T): Promise<T> {
@@ -136,7 +146,7 @@ function Main({ theme, gradients, lang, setLang, setTheme }: { theme: ThemeName;
   const navHidden = useRef(false); const scrollAnchor = useRef(0);
 
   useEffect(() => { (async () => {
-    setItems(await storage.load('linekeep_excerpts', INITIAL));
+    setItems(await storage.load('linekeep_excerpts', defaultExcerpts()));
     setNotes(await storage.load('linekeep_notes', []));
     setHasDrawnToday(await storage.load('passage_last_draw_date', '') === todayKey());
     setReady(true);
@@ -192,7 +202,7 @@ function Main({ theme, gradients, lang, setLang, setTheme }: { theme: ThemeName;
         notesCount={notes.length} onOpenNotes={() => { haptic.light(); setShowNotes(true); }}
         onExport={async () => { await Clipboard.setStringAsync(JSON.stringify(items, null, 2)); haptic.success(); Alert.alert(t('備份完成'), t('JSON 已複製到剪貼簿。')); }}
         onImport={() => setImporting(true)}
-        onRestore={() => Alert.alert(t('恢復預設'), t('目前書摘將被覆蓋。'), [{ text: t('取消') }, { text: t('恢復'), onPress: () => { haptic.warning(); commit(INITIAL); } }])}
+        onRestore={() => Alert.alert(t('恢復預設'), t('目前書摘將被覆蓋。'), [{ text: t('取消') }, { text: t('恢復'), onPress: () => { haptic.warning(); commit(defaultExcerpts()); } }])}
         onClear={() => Alert.alert(t('清空所有書摘'), t('此操作無法復原。'), [{ text: t('取消') }, { text: t('清空'), style: 'destructive', onPress: () => { haptic.warning(); commit([]); } }])} />}
     </View>
 
